@@ -1,29 +1,30 @@
-This lab builds directly on the previous CI lab. While CI ensures our code is healthy, **Continuous Delivery (CD)** ensures that the healthy code is packaged and moved toward a production environment automatically.
+Here is a complete, hands-on lab task designed to demonstrate **Continuous Integration (CI)**.
+
+This lab uses **GitHub Actions** because it is free, integrated directly into GitHub, and requires no external server setup. The application is a simple Python calculator, making the code easy to understand so students can focus on the CI concepts.
 
 ---
 
-### **Lab Overview: Delivering the Calculator**
+### **Lab Overview: The "Bulletproof" Calculator**
 
 **Objective:**
-Students will extend their pipeline to automatically create a "Production Release" on GitHub whenever a new version (tag) of the code is pushed. This simulates the process of preparing a software package for customers.
+Students will set up a CI pipeline that automatically runs unit tests every time they push code. They will learn how CI protects the codebase from "breaking changes."
 
 **Prerequisites:**
 
-* Completion of the CI Lab.
-* A GitHub account.
+* A GitHub Account.
+* Basic understanding of Git (commit, push).
 
 ---
 
 ### **Part 1: The Repository Files**
 
-We will add a new workflow file. Your structure should now look like this:
+You (or the students) should create a folder structure like this:
 
 ```text
-cd-lab-calculator/
+ci-lab-calculator/
 ├── .github/
 │   └── workflows/
-│       ├── ci.yml  (From previous lab)
-│       └── cd.yml  <-- NEW FILE
+│       └── ci.yml
 ├── src/
 │   └── calculator.py
 ├── tests/
@@ -33,42 +34,109 @@ cd-lab-calculator/
 
 ```
 
-#### **1. The CD Pipeline (`.github/workflows/cd.yml`)**
+Here is the code for each file to copy-paste.
 
-This workflow is more "picky." It only runs when you tell GitHub, "This code is ready for a version release" (by using a Git Tag).
+#### **1. The Application Code (`src/calculator.py`)**
+
+A simple script with basic math functions.
+
+```python
+def add(x, y):
+    return x + y
+
+def subtract(x, y):
+    return x - y
+
+def multiply(x, y):
+    return x * y
+
+def divide(x, y):
+    if y == 0:
+        raise ValueError("Cannot divide by zero")
+    return x / y
+
+```
+
+#### **2. The Test Suite (`tests/test_calculator.py`)**
+
+Unit tests that verify the calculator works.
+
+```python
+import unittest
+from src.calculator import add, subtract, multiply, divide
+
+class TestCalculator(unittest.TestCase):
+
+    def test_add(self):
+        self.assertEqual(add(10, 5), 15)
+        self.assertEqual(add(-1, 1), 0)
+
+    def test_subtract(self):
+        self.assertEqual(subtract(10, 5), 5)
+
+    def test_multiply(self):
+        self.assertEqual(multiply(10, 5), 50)
+
+    def test_divide(self):
+        self.assertEqual(divide(10, 2), 5)
+        with self.assertRaises(ValueError):
+            divide(10, 0)
+
+if __name__ == '__main__':
+    unittest.main()
+
+```
+
+#### **3. Dependencies (`requirements.txt`)**
+
+We only need a standard install, but it's good practice to include this file.
+
+```text
+# No external dependencies for this simple lab
+# But usually, you would list things like:
+# pytest==7.0.0
+
+```
+
+#### **4. The CI Pipeline (`.github/workflows/ci.yml`)**
+
+This is the heart of the lab. It tells GitHub what to do when code is pushed.
 
 ```yaml
-name: Continuous Delivery (Production Release)
+name: Python CI Pipeline
 
-# This triggers only when a tag starting with 'v' is pushed (e.g., v1.0)
+# Trigger the workflow on push or pull request to the main branch
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
-  deploy:
+  build-and-test:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+    # Step 1: Check out the repository code
+    - name: Checkout code
+      uses: actions/checkout@v3
 
-      - name: Run Final Sanity Check
-        run: python -m unittest discover tests
+    # Step 2: Install Python
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
 
-      - name: Package Application
-        run: |
-          mkdir -p release
-          cp src/calculator.py release/
-          tar -cvzf calculator-v${{ github.ref_name }}.tar.gz -C release .
+    # Step 3: Install dependencies (if any)
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: calculator-v${{ github.ref_name }}.tar.gz
-          body: "Automated release of version ${{ github.ref_name }}"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    # Step 4: Run the tests
+    - name: Run Unit Tests
+      run: |
+        python -m unittest discover tests
 
 ```
 
@@ -76,83 +144,88 @@ jobs:
 
 ### **Part 2: The Student `README.md**`
 
-Add this section to your existing README.
+Copy the content below into the `README.md` file. This serves as the instruction manual for the student.
 
 ---
 
-# Lab Part 2: Continuous Delivery (CD)
-
-In Part 1, we made sure the code didn't break. In Part 2, we are going to automate the **delivery** of our app. Instead of just "testing" the code, we are going to "ship" it.
-
-## 📦 Step 1: Understanding the Trigger
-
-Look at `cd.yml`. Notice it doesn't run on every push. It waits for a **Tag**. In the professional world, tags represent specific versions (like v1.0 or v2.4).
-
-## 🚀 Step 2: Creating your first Release
-
-1. Ensure your code is working and all tests pass.
-2. Open your terminal (or GitHub Desktop) and run these commands to "tag" your code:
-```bash
-git tag v1.0
-git push origin v1.0
-
-```
+# Lab: Intro to Continuous Integration (CI)
 
 
-3. Go to the **Actions** tab. You will see a new workflow named "Continuous Delivery" starting!
-4. Once it finishes, go to the **main page** of your GitHub repository.
-5. Look at the right-hand sidebar under **"Releases."** You should see `v1.0`.
-6. Click it. You will find a `.tar.gz` file—this is your "shipped" software!
+## 🏁 Step 1: Setup
 
-## 🧪 Step 3: The "Safety Net"
+1. Click the **Actions** tab in your GitHub repository. You should see a workflow run listed (triggered by your initial fork/push).
+2. Click on the workflow run to see the steps. Ensure all steps have a green checkmark ✅.
 
-1. Break your code again in `src/calculator.py` (e.g., change `return x + y` to `return x * 99`).
-2. Try to ship this broken version:
-```bash
-git add .
-git commit -m "Attempting to ship broken code"
-git tag v1.1
-git push origin v1.1
+## 🧪 Step 2: The "Happy Path"
+
+1. Open `src/calculator.py`.
+2. Add a small comment to the file (e.g., `# This is a change`).
+3. Commit and push the change to GitHub.
+4. Go to the **Actions** tab immediately. Watch the pipeline start automatically.
+5. Observe how it sets up Python, installs dependencies, and runs the tests. It should pass.
+
+## 💥 Step 3: Break the Build!
+
+Now, let's see what happens when we make a mistake.
+
+1. Open `src/calculator.py`.
+2. Change the `add` function so it is **incorrect**:
+```python
+def add(x, y):
+    return x - y  # This is a bug!
 
 ```
 
 
-3. **Observe:** The CD pipeline will fail at the "Sanity Check" step. The release will be created, but it will be marked as failed/incomplete. In a real-world CD setup, this prevents broken software from reaching your customers.
+3. Commit and push this change.
+4. Go to the **Actions** tab.
+5. **Observe:** The pipeline will fail (Red X ❌).
+6. Click into the failure details and find the specific test that failed (`test_add`). This demonstrates how CI catches bugs before they reach production.
+
+## 🚑 Step 4: Fix the Build
+
+1. Revert the change in `src/calculator.py` to fix the bug:
+```python
+def add(x, y):
+    return x + y
+
+```
+
+
+2. Commit and push.
+3. Verify in the **Actions** tab that the build is Green ✅ again.
 
 ---
 
 ### **Part 3: Student Exercises**
 
-#### **Exercise 1: The Release Notes**
+Once the students have completed the README steps above, assign them these 5 exercises to deepen their understanding.
 
-* **Task:** Modify `cd.yml`. Change the `body` of the release to include the name of the person who triggered the build.
-* **Hint:** Look into GitHub context variables like `${{ github.actor }}`.
-* **Goal:** Understand how to customize automated deployment metadata.
+#### **Exercise 1: Feature Expansion**
 
-#### **Exercise 2: Multi-Environment Simulation**
+* **Task:** Add a new function `power(x, y)` (exponentiation) to `src/calculator.py`.
+* **Requirement:** If you push *only* the function, the CI will pass, but the code is untested. You must also write a new test case `test_power` in `tests/test_calculator.py`.
+* **Goal:** Verify that the CI runs your *new* test automatically without changing the configuration file.
 
-* **Task:** Create a new branch named `staging`. Modify the `ci.yml` so that it runs on `main`, but create a new workflow `staging.yml` that only runs when code is pushed to the `staging` branch.
-* **Goal:** Understand how code moves through different "levels" (Dev -> Staging -> Prod).
+#### **Exercise 2: The "Strict" Gatekeeper**
 
-#### **Exercise 3: Environment Secrets**
+* **Task:** Modify the `tests/test_calculator.py` to enforce that the `divide` function returns a float, not an integer (e.g., `10 / 2` should be `5.0`).
+* **Goal:** Learn how updating tests can force code updates.
 
-* **Task:** Imagine you need a password to upload your code to a server. Go to your GitHub Repo **Settings > Secrets and variables > Actions**. Create a secret named `DEPLOY_TOKEN`.
-* **Task:** Add a step in `cd.yml` that simply prints "Using secret token" and then echoes the secret (Note: GitHub will mask it with `***`).
-* **Goal:** Learn how to handle sensitive data in a CD pipeline.
+#### **Exercise 3: Linting (Code Quality)**
 
-#### **Exercise 4: The "Rollback" Concept**
+* **Task:** CI isn't just for testing; it's for style, too. Edit the `.github/workflows/ci.yml` file. Add a step *before* "Run Unit Tests" to install and run `flake8`.
+* *Hint command:* `pip install flake8` and `flake8 src/`
 
-* **Task:** If `v1.1` was broken, how do you fix it? Fix the bug in your code, then push a new tag `v1.2`.
-* **Goal:** Understand that in CD, we "fix forward" by deploying a new, corrected version.
 
-#### **Exercise 5: Artifact Cleanup**
+* **Goal:** Understand multi-step pipelines.
 
-* **Task:** Currently, we package only `calculator.py`. Modify the "Package Application" step in `cd.yml` to also include the `requirements.txt` file in the final `.tar.gz` bundle.
-* **Goal:** Learn how to manage what actually gets sent to the user/server.
+#### **Exercise 4: Broken Dependency Simulation**
 
----
+* **Task:** Create a file named `requirements.txt` and add a non-existent package name (e.g., `fakepackage==99.99`). Push the code.
+* **Goal:** Observe at which step the pipeline fails. Does it even reach the "Run Unit Tests" stage? (Answer: No, it fails at the "Install dependencies" step).
 
-### **Would you like me to:**
+#### **Exercise 5: Add a Status Badge**
 
-1. Explain how to add a **Manual Approval** step (a common "Gate" in CD)?
-2. Show you how to deploy this calculator as a **Docker Image** to Docker Hub instead of a GitHub Release?
+* **Task:** Go to your repository **Actions** tab, select the "Python CI Pipeline," click the "..." menu, and select "Create status badge." Copy the Markdown code and paste it at the very top of your `README.md`.
+* **Goal:** Learn how developers communicate build health visually.
